@@ -19,13 +19,23 @@ export function EndpointInput() {
     }
   };
 
+  const TEST_URL = "https://countries.trevorblades.com/graphql";
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab" && !endpoint) {
+      e.preventDefault();
+      setEndpoint(TEST_URL);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Input
         type="url"
-        placeholder="https://countries.trevorblades.com/graphql"
+        placeholder={TEST_URL}
         value={endpoint}
         onChange={(e) => setEndpoint(e.target.value)}
+        onKeyDown={handleKeyDown}
         disabled={isConnected}
         className="flex-1"
       />
