@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { z } from "zod";
 import {
   Breadcrumb,
@@ -20,16 +21,16 @@ export function TamboBreadcrumb({ items }: BreadcrumbProps) {
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
           return (
-            <BreadcrumbItem key={i}>
-              {isLast ? (
-                <BreadcrumbPage>{item.label}</BreadcrumbPage>
-              ) : (
-                <>
+            <React.Fragment key={i}>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                ) : (
                   <BreadcrumbLink href={item.href}>{item.label}</BreadcrumbLink>
-                  <BreadcrumbSeparator />
-                </>
-              )}
-            </BreadcrumbItem>
+                )}
+              </BreadcrumbItem>
+              {!isLast && <BreadcrumbSeparator />}
+            </React.Fragment>
           );
         })}
       </BreadcrumbList>

@@ -14,7 +14,9 @@ export function TamboHoverCard({ trigger, content }: HoverCardProps) {
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
-        <span className="cursor-pointer underline">{trigger}</span>
+        <button type="button" className="cursor-pointer underline">
+          {trigger}
+        </button>
       </HoverCardTrigger>
       <HoverCardContent>
         <p className="text-sm">{content}</p>

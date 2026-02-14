@@ -20,7 +20,7 @@ export function GraphQLProviderWrapper({
     });
   }, [endpoint]);
 
-  if (!isConnected) {
+  if (!endpoint || !isConnected) {
     return <>{children}</>;
   }
 

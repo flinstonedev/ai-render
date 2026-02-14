@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isPrivateHostname } from "@/lib/graphql/url-validation";
 
 export async function POST(request: NextRequest) {
   const endpoint = request.headers.get("x-graphql-endpoint");
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return NextResponse.json(
       { errors: [{ message: "Endpoint must use http or https protocol" }] },
+      { status: 400 }
+    );
+  }
+
+  if (isPrivateHostname(url.hostname)) {
+    return NextResponse.json(
+      { errors: [{ message: "Requests to private/internal networks are not allowed" }] },
       { status: 400 }
     );
   }

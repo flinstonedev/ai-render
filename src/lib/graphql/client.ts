@@ -14,6 +14,15 @@ export async function executeQuery(
     body: JSON.stringify({ query, variables }),
   });
 
+  if (!response.ok) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { errors: [{ message: `HTTP ${response.status}: ${text.slice(0, 200)}` }] };
+    }
+  }
+
   return response.json();
 }
 
@@ -25,6 +34,15 @@ export async function introspectSchema(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ endpoint }),
   });
+
+  if (!response.ok) {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { errors: [{ message: `HTTP ${response.status}: ${text.slice(0, 200)}` }] };
+    }
+  }
 
   return response.json();
 }

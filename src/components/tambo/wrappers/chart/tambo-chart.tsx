@@ -30,6 +30,10 @@ import {
 
 type ChartProps = z.infer<typeof ChartSchema>;
 
+function sanitizeKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
 export function TamboChart({
   type,
   data,
@@ -37,8 +41,13 @@ export function TamboChart({
   description,
   dataKeys,
 }: ChartProps) {
+  const safeDataKeys = dataKeys.map((dk) => ({
+    ...dk,
+    key: sanitizeKey(dk.key),
+  }));
+
   const config: ChartConfig = {};
-  dataKeys.forEach((dk, i) => {
+  safeDataKeys.forEach((dk, i) => {
     config[dk.key] = {
       label: dk.key,
       color: dk.color || `hsl(var(--chart-${i + 1}))`,
@@ -48,7 +57,7 @@ export function TamboChart({
   // Transform structured data into the flat format Recharts expects
   const rechartsData = data.map((point) => {
     const entry: Record<string, string | number> = { label: point.label };
-    dataKeys.forEach((dk, i) => {
+    safeDataKeys.forEach((dk, i) => {
       entry[dk.key] = point.values[i] ?? 0;
     });
     return entry;
@@ -64,7 +73,7 @@ export function TamboChart({
             <YAxis />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            {dataKeys.map((dk) => (
+            {safeDataKeys.map((dk) => (
               <Bar
                 key={dk.key}
                 dataKey={dk.key}
@@ -82,7 +91,7 @@ export function TamboChart({
             <YAxis />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            {dataKeys.map((dk) => (
+            {safeDataKeys.map((dk) => (
               <Line
                 key={dk.key}
                 type="monotone"
@@ -101,7 +110,7 @@ export function TamboChart({
             <YAxis />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            {dataKeys.map((dk) => (
+            {safeDataKeys.map((dk) => (
               <Area
                 key={dk.key}
                 type="monotone"
@@ -118,7 +127,7 @@ export function TamboChart({
           <PieChart>
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            {dataKeys.map((dk) => (
+            {safeDataKeys.map((dk) => (
               <Pie
                 key={dk.key}
                 data={rechartsData}
@@ -136,7 +145,7 @@ export function TamboChart({
             <PolarAngleAxis dataKey="label" />
             <ChartTooltip content={<ChartTooltipContent />} />
             <ChartLegend content={<ChartLegendContent />} />
-            {dataKeys.map((dk) => (
+            {safeDataKeys.map((dk) => (
               <Radar
                 key={dk.key}
                 dataKey={dk.key}
