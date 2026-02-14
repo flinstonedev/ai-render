@@ -14,12 +14,12 @@ import { GraphQLBridgeProvider } from "@/components/graphql/graphql-context";
 import { GraphQLProviderWrapper } from "@/components/graphql/graphql-provider-wrapper";
 import { TamboProviderWrapper } from "@/components/tambo/tambo-provider-wrapper";
 import { SchemaExplorer } from "@/components/graphql/schema-explorer";
-import { QueryEditorPanel } from "@/components/graphql/query-editor-panel";
 import { ResultsPanel } from "@/components/graphql/results-panel";
 import { ChatPanel } from "@/components/tambo/chat-panel";
 import { Toolbar } from "./toolbar";
 import { PanelHeader } from "./panel-header";
 import { useGraphQLBridge } from "@/components/graphql/graphql-context";
+import { QueryEditor, VariableEditor } from "@graphiql/react";
 
 function WorkbenchPanels() {
   const { isConnected } = useGraphQLBridge();
@@ -49,14 +49,29 @@ function WorkbenchPanels() {
             <div className="flex-1 overflow-hidden">
               {isConnected ? (
                 <ResizablePanelGroup orientation="vertical">
-                  <ResizablePanel defaultSize={60} minSize={20}>
-                    <QueryEditorPanel />
+                  <ResizablePanel defaultSize={45} minSize={15}>
+                    <div className="flex h-full flex-col overflow-hidden">
+                      <QueryEditor />
+                    </div>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize={15} minSize={8}>
+                    <div className="flex h-full flex-col">
+                      <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b">
+                        Variables
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <VariableEditor />
+                      </div>
+                    </div>
                   </ResizablePanel>
                   <ResizableHandle withHandle />
                   <ResizablePanel defaultSize={40} minSize={15}>
-                    <PanelHeader title="Results" />
-                    <div className="h-[calc(100%-2.5rem)] overflow-hidden">
-                      <ResultsPanel />
+                    <div className="flex h-full flex-col">
+                      <PanelHeader title="Results" />
+                      <div className="flex-1 overflow-hidden">
+                        <ResultsPanel />
+                      </div>
                     </div>
                   </ResizablePanel>
                 </ResizablePanelGroup>
