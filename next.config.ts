@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  transpilePackages: [
+    "graphiql",
+    "@graphiql/react",
+    "@graphiql/plugin-explorer",
+    "@graphiql/toolkit",
+  ],
 };
 
 export default nextConfig;

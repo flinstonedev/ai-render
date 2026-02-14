@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Pre-built Monaco Editor worker files served from public/
+    "public/monaco-editor/**",
   ]),
 ]);
 
