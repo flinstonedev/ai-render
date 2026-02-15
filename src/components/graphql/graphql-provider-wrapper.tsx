@@ -19,54 +19,60 @@ function SchemaSummaryLoader() {
     let cancelled = false;
 
     async function loadSchemaSummary() {
-      const result = await executeQuery(
-        endpoint,
-        `{
-          __schema {
-            queryType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
-            mutationType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
+      try {
+        const result = await executeQuery(
+          endpoint,
+          `{
+            __schema {
+              queryType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
+              mutationType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
+            }
+          }`
+        );
+
+        if (cancelled) return;
+
+        type IntrospectionType = { name: string | null; kind: string; ofType?: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } | null };
+        type FieldWithArgs = {
+          name: string;
+          args?: Array<{ name: string; type: IntrospectionType }>;
+          type: IntrospectionType;
+        };
+        const schema = result.data?.__schema as {
+          queryType?: { fields: FieldWithArgs[] };
+          mutationType?: { fields: FieldWithArgs[] } | null;
+        };
+
+        if (!schema) return;
+
+        const lines: string[] = [];
+        function formatFieldWithArgs(f: FieldWithArgs): string {
+          const argsStr = f.args?.length
+            ? `(${f.args.map((a) => `${a.name}: ${formatType(a.type)}`).join(", ")})`
+            : "";
+          return `  ${f.name}${argsStr}: ${formatType(f.type)}`;
+        }
+
+        if (schema.queryType) {
+          lines.push("Queries:");
+          for (const f of schema.queryType.fields) {
+            lines.push(formatFieldWithArgs(f));
           }
-        }`
-      );
-
-      if (cancelled) return;
-
-      type IntrospectionType = { name: string | null; kind: string; ofType?: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } | null };
-      type FieldWithArgs = {
-        name: string;
-        args?: Array<{ name: string; type: IntrospectionType }>;
-        type: IntrospectionType;
-      };
-      const schema = result.data?.__schema as {
-        queryType?: { fields: FieldWithArgs[] };
-        mutationType?: { fields: FieldWithArgs[] } | null;
-      };
-
-      if (!schema) return;
-
-      const lines: string[] = [];
-      function formatFieldWithArgs(f: FieldWithArgs): string {
-        const argsStr = f.args?.length
-          ? `(${f.args.map((a) => `${a.name}: ${formatType(a.type)}`).join(", ")})`
-          : "";
-        return `  ${f.name}${argsStr}: ${formatType(f.type)}`;
-      }
-
-      if (schema.queryType) {
-        lines.push("Queries:");
-        for (const f of schema.queryType.fields) {
-          lines.push(formatFieldWithArgs(f));
         }
-      }
-      if (schema.mutationType) {
-        lines.push("Mutations:");
-        for (const f of schema.mutationType.fields) {
-          lines.push(formatFieldWithArgs(f));
+        if (schema.mutationType) {
+          lines.push("Mutations:");
+          for (const f of schema.mutationType.fields) {
+            lines.push(formatFieldWithArgs(f));
+          }
         }
-      }
 
-      if (lines.length > 0) {
-        setSchemaSummary(lines.join("\n"));
+        if (lines.length > 0) {
+          setSchemaSummary(lines.join("\n"));
+        }
+      } catch {
+        if (!cancelled) {
+          setSchemaSummary(null);
+        }
       }
     }
 

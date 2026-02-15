@@ -31,7 +31,7 @@ export function GraphQLEditorSync() {
     registerEditorSync({
       syncQueryToEditor: (query: string, variables?: string) => {
         queryEditorRef.current?.setValue(query);
-        if (variables) {
+        if (variables !== undefined) {
           variableEditorRef.current?.setValue(variables);
         }
       },
