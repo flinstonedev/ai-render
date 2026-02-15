@@ -1,11 +1,26 @@
 import { z } from "zod";
 import { executeQuery } from "@/lib/graphql/client";
 
-export function createTamboTools(getEndpoint: () => string) {
+export interface ToolBridgeCallbacks {
+  getEndpoint: () => string;
+  getIsConnected: () => boolean;
+  syncQueryToEditor: (query: string, variables?: string) => void;
+  syncResultsToEditor: (results: string) => void;
+}
+
+export function createTamboTools(callbacks: ToolBridgeCallbacks) {
   const executeGraphQLQueryTool = {
     name: "execute_graphql_query",
     description:
-      "Execute a GraphQL query against the connected endpoint. Use this to fetch data that can then be rendered using UI components. Returns the query results as JSON.",
+      "Execute a GraphQL query against the connected endpoint. The query and results will be synced to the editor panels automatically. " +
+      "BEFORE writing any query: check the schema summary for available arguments on the target field. " +
+      "You MUST use filter/code/id arguments to narrow results server-side — never fetch all records when a filter argument exists. " +
+      "For example, use countries(filter: { currency: { eq: \"EUR\" } }) instead of fetching all countries and filtering client-side. " +
+      "PAGINATION: When the result count is unknown, always use pagination arguments (first/limit/offset) if the schema supports them — " +
+      "default to ~50 records per request. If no pagination args exist, use filters to narrow results and select minimal fields. " +
+      "After receiving results, choose the best component to render: " +
+      "use DataTable for arrays/lists of records (limit to 3-5 columns for readability), Chart for numeric comparisons or trends, " +
+      "Card for single items or summaries, and Tabs when showing multiple views.",
     inputSchema: z.object({
       query: z
         .string()
@@ -23,10 +38,11 @@ export function createTamboTools(getEndpoint: () => string) {
         .describe("Any errors from the query execution"),
     }),
     tool: async (params: { query: string; variables?: string }) => {
-      const endpoint = getEndpoint();
+      const endpoint = callbacks.getEndpoint();
       if (!endpoint) {
         return { errors: [{ message: "No GraphQL endpoint connected" }] };
       }
+
       let parsedVars: Record<string, unknown> | undefined;
       if (params.variables) {
         try {
@@ -35,14 +51,23 @@ export function createTamboTools(getEndpoint: () => string) {
           return { errors: [{ message: "Invalid JSON in variables" }] };
         }
       }
-      return executeQuery(endpoint, params.query, parsedVars);
+
+      callbacks.syncQueryToEditor(params.query, params.variables);
+
+      const result = await executeQuery(endpoint, params.query, parsedVars);
+
+      callbacks.syncResultsToEditor(JSON.stringify(result, null, 2));
+
+      return result;
     },
   };
 
   const getSchemaInfoTool = {
     name: "get_schema_info",
     description:
-      "Introspect the connected GraphQL schema to discover available types, queries, mutations, and their fields. Use this before building queries to understand the API structure.",
+      "Introspect the connected GraphQL schema to discover available types, queries, mutations, and their fields. " +
+      "Use this before building queries to understand the API structure. " +
+      "Note: A schema summary is already available in context when connected — use this tool only when you need details about a specific type.",
     inputSchema: z.object({
       typeName: z
         .string()
@@ -67,7 +92,7 @@ export function createTamboTools(getEndpoint: () => string) {
         .describe("Details of a specific type"),
     }),
     tool: async (params: { typeName?: string }) => {
-      const endpoint = getEndpoint();
+      const endpoint = callbacks.getEndpoint();
       if (!endpoint) {
         return { types: ["No endpoint connected"] };
       }
@@ -81,6 +106,14 @@ export function createTamboTools(getEndpoint: () => string) {
               kind
               fields {
                 name
+                args {
+                  name
+                  type {
+                    name
+                    kind
+                    ofType { name kind ofType { name kind ofType { name kind } } }
+                  }
+                }
                 type {
                   name
                   kind
@@ -93,7 +126,11 @@ export function createTamboTools(getEndpoint: () => string) {
         );
         const typeData = result.data?.__type as {
           name: string;
-          fields?: Array<{ name: string; type: { name: string | null; kind: string; ofType?: unknown } }>;
+          fields?: Array<{
+            name: string;
+            args?: Array<{ name: string; type: { name: string | null; kind: string; ofType?: unknown } }>;
+            type: { name: string | null; kind: string; ofType?: unknown };
+          }>;
         } | null;
         if (!typeData) {
           return { types: [`Type '${params.typeName}' not found`] };
@@ -101,10 +138,15 @@ export function createTamboTools(getEndpoint: () => string) {
         return {
           typeDetails: {
             name: typeData.name,
-            fields: (typeData.fields ?? []).map((f) => ({
-              name: f.name,
-              type: formatGraphQLType(f.type),
-            })),
+            fields: (typeData.fields ?? []).map((f) => {
+              const argsStr = f.args?.length
+                ? `(${f.args.map((a) => `${a.name}: ${formatGraphQLType(a.type)}`).join(", ")})`
+                : "";
+              return {
+                name: `${f.name}${argsStr}`,
+                type: formatGraphQLType(f.type),
+              };
+            }),
           },
         };
       }
@@ -113,41 +155,44 @@ export function createTamboTools(getEndpoint: () => string) {
         endpoint,
         `{
           __schema {
-            queryType { name fields { name type { name kind ofType { name kind } } } }
-            mutationType { name fields { name type { name kind ofType { name kind } } } }
-            subscriptionType { name fields { name type { name kind ofType { name kind } } } }
+            queryType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
+            mutationType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
+            subscriptionType { name fields { name args { name type { name kind ofType { name kind ofType { name kind } } } } type { name kind ofType { name kind ofType { name kind } } } } }
           }
         }`
       );
+      type SchemaFieldType = { name: string | null; kind: string; ofType?: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } | null };
+      type SchemaField = { name: string; args?: Array<{ name: string; type: SchemaFieldType }>; type: SchemaFieldType };
       const schema = result.data?.__schema as {
-        queryType?: { name: string; fields: Array<{ name: string; type: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } }> };
-        mutationType?: { name: string; fields: Array<{ name: string; type: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } }> } | null;
-        subscriptionType?: { name: string; fields: Array<{ name: string; type: { name: string | null; kind: string; ofType?: { name: string | null; kind: string } | null } }> } | null;
+        queryType?: { name: string; fields: SchemaField[] };
+        mutationType?: { name: string; fields: SchemaField[] } | null;
+        subscriptionType?: { name: string; fields: SchemaField[] } | null;
       };
       if (!schema) {
         return { types: ["Failed to introspect schema"] };
       }
 
+      function formatFieldWithArgs(prefix: string, f: SchemaField): string {
+        const argsStr = f.args?.length
+          ? `(${f.args.map((a) => `${a.name}: ${formatGraphQLType(a.type)}`).join(", ")})`
+          : "";
+        return `${prefix}.${f.name}${argsStr}: ${formatGraphQLType(f.type)}`;
+      }
+
       const types: string[] = [];
       if (schema.queryType) {
         types.push(
-          ...schema.queryType.fields.map(
-            (f) => `Query.${f.name}: ${formatGraphQLType(f.type)}`
-          )
+          ...schema.queryType.fields.map((f) => formatFieldWithArgs("Query", f))
         );
       }
       if (schema.mutationType) {
         types.push(
-          ...schema.mutationType.fields.map(
-            (f) => `Mutation.${f.name}: ${formatGraphQLType(f.type)}`
-          )
+          ...schema.mutationType.fields.map((f) => formatFieldWithArgs("Mutation", f))
         );
       }
       if (schema.subscriptionType) {
         types.push(
-          ...schema.subscriptionType.fields.map(
-            (f) => `Subscription.${f.name}: ${formatGraphQLType(f.type)}`
-          )
+          ...schema.subscriptionType.fields.map((f) => formatFieldWithArgs("Subscription", f))
         );
       }
       return { types };

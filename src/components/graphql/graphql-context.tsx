@@ -1,8 +1,19 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from "react";
 import type { GraphQLSchema } from "graphql";
 import type { QueryResult } from "@/types/graphql";
+
+export interface EditorSyncCallbacks {
+  syncQueryToEditor: (query: string, variables?: string) => void;
+  syncResultsToEditor: (results: string) => void;
+}
 
 interface GraphQLBridgeContextValue {
   endpoint: string;
@@ -19,6 +30,10 @@ interface GraphQLBridgeContextValue {
   setResults: (results: QueryResult | null) => void;
   isExecuting: boolean;
   setIsExecuting: (executing: boolean) => void;
+  schemaSummary: string | null;
+  setSchemaSummary: (summary: string | null) => void;
+  registerEditorSync: (callbacks: EditorSyncCallbacks) => void;
+  getEditorSync: () => EditorSyncCallbacks | null;
 }
 
 const GraphQLBridgeContext = createContext<GraphQLBridgeContextValue | null>(
@@ -37,6 +52,17 @@ export function GraphQLBridgeProvider({
   const [variables, setVariables] = useState("{}");
   const [results, setResults] = useState<QueryResult | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [schemaSummary, setSchemaSummary] = useState<string | null>(null);
+  const editorSyncRef = useRef<EditorSyncCallbacks | null>(null);
+
+  const registerEditorSync = useCallback(
+    (callbacks: EditorSyncCallbacks) => {
+      editorSyncRef.current = callbacks;
+    },
+    []
+  );
+
+  const getEditorSync = useCallback(() => editorSyncRef.current, []);
 
   return (
     <GraphQLBridgeContext.Provider
@@ -55,6 +81,10 @@ export function GraphQLBridgeProvider({
         setResults,
         isExecuting,
         setIsExecuting,
+        schemaSummary,
+        setSchemaSummary,
+        registerEditorSync,
+        getEditorSync,
       }}
     >
       {children}
