@@ -1,8 +1,8 @@
 # AI Render
 
-A GraphQL workbench that turns query results into interactive components through
-an optional AI conversation. Explore a schema, edit and run a query, then ask for
-a table, chart or card based on the results.
+AI Render is a local tool for exploring public GraphQL APIs. Browse a schema
+and run a read-only query, then optionally ask AI to show the results as an
+interactive table, chart, or card.
 
 ![AI Render workbench with synthetic GraphQL results and a rendered table](docs/demo.png)
 
